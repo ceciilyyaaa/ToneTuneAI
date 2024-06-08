@@ -1,0 +1,166 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech to Playlist Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}"></head>
+
+<body>
+    <header>
+        <h2>ToneTune: your friendly music generator</h2>
+        <nav>
+            <ul>
+                <li><a href="#">Home</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <article class="how-it-works">
+            <h3>How it works</h3>
+            <p>ToneTune will generate Spotify Playlist based on the command that was given. The command should contain keywords such as happy, sad, ordinary, and upset.</p>
+            <img src="{{ url_for('static', filename='images/spotify.jpg') }}" alt="logo">
+        </article>
+
+        <aside>
+            <h4>Keywords</h4>
+            <img src="{{ url_for('static', filename='images/keywords.jpg') }}" alt="keywords">
+            <h4>don't forget to say it clear!</h4>
+        </aside>
+
+        <!-- Playlist Generation Section -->
+        <article>
+            <div class="playlist-section">
+                <h3>Generate Your Playlist</h3>
+                <button class="mic-icon" id="startRecording">🎤 Speak</button>
+            </div>
+        </article>
+
+        <aside>
+            <div id="playlist">
+                <h4>Generated Playlist</h4>
+                <ul id="playlistItems">
+                    <!-- Playlist items will be added here dynamically -->
+                </ul>
+                <ul id="playlistGenre">
+                    <!-- Playlist genre will be added here dynamically -->
+                </ul>
+
+                <p id="receivedSpeech">Received Speech Input: </p>
+                <p id="detectedEmotion">Detected Emotion: </p>
+                <p id="detectedGenre">Detected Genre: </p>
+            </div>
+        </aside> 
+    </main>
+
+    <footer>
+        <h5>ABC's Artificial Inteligence Project <3</h5>
+    </footer>
+
+    <script>
+        // Function to trigger the speech synthesis when the page loads
+        window.onload = function() {
+            // Call the speak function with the desired message
+            speak("Hello I'm Tone Tune AI! Please speak to me to get a playlist based on your mood.");
+        };
+
+        // Function to trigger speech synthesis
+        function speak(message) {
+            var synth = window.speechSynthesis;
+            var utterance = new SpeechSynthesisUtterance(message);
+            synth.speak(utterance);
+        }
+        
+        // When the element with the id 'startRecording' is clicked, start the speech recognition process.
+        document.getElementById('startRecording').onclick = function() {
+            var recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            // Define what to do when speech recognition results are available.
+            recognition.onresult = function(event) {
+                // Extract the recognized speech from the event and log it.
+                var speechResult = event.results[0][0].transcript;
+                console.log('Speech recognized:', speechResult); // Added logging
+                // Send the recognized speech to the server for playlist generation.
+                sendSpeechToServer(speechResult);
+            };
+            // Start the speech recognition process.
+            recognition.start();
+        };
+    
+        function sendSpeechToServer(speechResult) {
+            console.log('Sending speech input:', speechResult); // Added logging
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/get_playlist", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    console.log('Response:', xhr.responseText); // Added logging
+                    if (xhr.status === 200) {
+                        var response = JSON.parse(xhr.responseText);
+                        console.log('Server response:', response); // Added logging
+                        if (response.success) {
+                            displayPlaylist(response.emotion_playlist_url, response.genre_playlist_url, response.emotion_embedCode, response.genre_embedCode);
+                            displaySpeechInfo(speechResult, response.detectedEmotion, response.detectedGenre);
+                            speak("Here are your requested playlists, have a good day!");
+                        } else {
+                            console.error('No playlist found:', response.message);
+                            //Prompt the user repeat their input 
+                            speak("I'm sorry, I didn't catch that. Please try again and speak clearly based on the keywords.");
+                            displaySpeechInfo(speechResult, response.detectedEmotion, response.detectedGenre);
+                        }
+                    } else {
+                        console.error('Request failed:', xhr.status);
+                    }
+                }
+            };
+            // Send the recognized speech input to the server as JSON data.
+            xhr.send(JSON.stringify({ speech_input: speechResult }));
+        }
+
+    
+        // Function to display the generated playlist on the webpage.
+        function displayPlaylist(emotion_playlist_url, genre_playlist_url, emotion_embedCode, genre_embedCode) {
+            var playlistItems = document.getElementById('playlistItems');
+            var playlistGenre = document.getElementById('playlistGenre');
+            
+            // Clear previous playlist items
+            playlistItems.innerHTML = '';
+            playlistGenre.innerHTML = '';
+
+            // Add emotion playlist if available
+            if (emotion_playlist_url && emotion_embedCode) {
+                playlistItems.innerHTML += emotion_embedCode;
+               
+            }
+
+            // Add genre playlist if available
+            if (genre_playlist_url && genre_embedCode) {
+                playlistGenre.innerHTML += genre_embedCode;
+            
+            }
+
+            // Display the playlist URLs or playlist genre on the webpage.
+            if (emotion_playlist_url) {
+                playlistItems.innerHTML += '<li><a href="' + emotion_playlist_url + '" target="_blank">Emotion Playlist</a></li>';
+            }
+            if (genre_playlist_url) {
+                playlistGenre.innerHTML += '<li><a href="' + genre_playlist_url + '" target="_blank">Genre Playlist</a></li>';
+            }
+        }
+
+        // Function to display speech info on the webpage.
+        function displaySpeechInfo(speech_input, emotion, genre) {
+            var receivedSpeech = document.getElementById('receivedSpeech');
+            var detectedEmotion = document.getElementById('detectedEmotion');
+            var detectedGenre = document.getElementById('detectedGenre');
+            receivedSpeech.innerText = 'Received Speech Input: ' + speech_input;
+            detectedEmotion.innerText = 'Detected Emotion: ' + emotion;
+            detectedGenre.innerText = 'Detected Genre: ' + genre;
+        }
+    </script>
+    
+</body>
+</html>
